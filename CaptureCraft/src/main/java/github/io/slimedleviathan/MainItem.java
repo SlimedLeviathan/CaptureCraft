@@ -38,6 +38,8 @@ public class MainItem extends Item{
 	public static String ITEM_DATA_KEY = "capturecraft.item_keys";
 	public static String HELD_ENTITY_KEY = "capturecraft.held_entity";
 	
+	private static List<String> forbiddenEntityKeys = List.of("Pos", "Rotation", "Motion", "id", "FallDistance");
+	
 	public MainItem(Item.Properties itemProperties) {
 		super(itemProperties.stacksTo(1)); // always no matter what stack to only 1
 	}
@@ -111,7 +113,17 @@ public class MainItem extends Item{
 					// spawn the entity if the entity type is not null (we use allData for our mob since it should only have the mob data now)
 					if (mobType != null) {
 						// level, tags, component, player, click pos, spawn type, bool, bool
-						mobType.spawn((ServerLevel) context.getLevel(), allData, null, context.getPlayer(), new BlockPos(clickPos), MobSpawnType.SPAWN_EGG, false, false);
+						LivingEntity spawnedMob = (LivingEntity) mobType.spawn((ServerLevel) context.getLevel(), allData, null, context.getPlayer(), new BlockPos(clickPos), MobSpawnType.SPAWN_EGG, false, false);
+						
+						// in order for the mob not to be teleported to the shadow realm, we are going to put the spawned mobs forbidden keys into the mob data
+						
+						CompoundTag spawnedMobData = spawnedMob.serializeNBT();
+						
+//						CaptureCraft.LOGGER.info(spawnedMobData.getAsString());
+						
+						spawnedMobData.merge(allData);
+						
+						spawnedMob.deserializeNBT(spawnedMobData); // adds the data onto the mob
 						
 						// spawn particles at click location
 						((ServerLevel) context.getLevel()).sendParticles(ParticleTypes.CLOUD, clickPos.x, clickPos.y + (mobType.getHeight() / 2), clickPos.z, 25, 0, 0, 0, .05);	// random (increase is also amount of particles), x, y, z, speed	
@@ -174,6 +186,22 @@ public class MainItem extends Item{
 			
 			// merges the entity data with the end data
 			CompoundTag entityData = entity.serializeNBT();
+			
+			// we need to remove some things from the entity data, such as:
+			// fall distance, as we dont want a mob that was fallikng to take fall damage once it comes back into the world
+			// id, since we already save that
+			// motion, so it doesnt keep the motion it has
+			// position, so that it can actually go where we want it to be placed
+			// Rotation just bc
+			
+			// only problem with all of these is that some data might also be needed to be removed from moded mobs, but we cant really help that
+			
+			for (String key : forbiddenEntityKeys){
+				if (entityData.contains(key)) {
+					entityData.remove(key);					
+				}
+			}
+			
 			itemData.merge(entityData);
 			
 			itemData.putString(HELD_ENTITY_KEY, entity.getEncodeId()); // add entity type into the stack
@@ -243,5 +271,9 @@ public class MainItem extends Item{
 	@Override
 	public boolean isFoil(ItemStack stack) {
 		return stack.hasTag() && stack.getTag().contains(HELD_ENTITY_KEY) && !stack.getTag().get(HELD_ENTITY_KEY).getAsString().isBlank();
+	}
+	
+	public static void addForbiddenKey(String key) {
+		forbiddenEntityKeys.add(key);
 	}
 }
