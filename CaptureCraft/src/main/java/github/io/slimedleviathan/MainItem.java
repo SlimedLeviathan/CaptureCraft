@@ -119,8 +119,6 @@ public class MainItem extends Item{
 						
 						CompoundTag spawnedMobData = spawnedMob.serializeNBT();
 						
-//						CaptureCraft.LOGGER.info(spawnedMobData.getAsString());
-						
 						spawnedMobData.merge(allData);
 						
 						spawnedMob.deserializeNBT(spawnedMobData); // adds the data onto the mob
